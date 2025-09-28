@@ -43,6 +43,10 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "EXPO_PUBLIC_SUPABASE_URL": "https://dxrqxtybkodszkzgsvmi.supabase.co",
+      "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4cnF4dHlia29kc3premdzdm1pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwMDgyNjIsImV4cCI6MjA3NDU4NDI2Mn0.6fWkvKCWXWKDXMgtOFcIG4HDXsTTezjBmFlfLVIuDk4"
     }
   }
 }
