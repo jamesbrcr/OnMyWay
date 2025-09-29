@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as Linking from "expo-linking";
 import * as Location from "expo-location";
 import { useRideStore } from "@/lib/rideStore"; // or "../../lib/rideStore"
+import { supabase } from "@/lib/supabase";
 
 export default function JoinRide() {
   const params = useLocalSearchParams<{ rideId?: string; dest?: string }>();
@@ -14,36 +15,60 @@ export default function JoinRide() {
   const [joined, setJoined] = useState(false);
   const myPickupIdRef = useRef<string | null>(null);
 
-  // Attach to the ride from the link
+  // 1) Attach to the ride from the link (runs once when params change)
   useEffect(() => {
     const rid = String(params.rideId || "");
     const dest = String(params.dest || "");
     if (!rid || !dest) return;
-    if (ride.id !== rid) attachRide(rid, dest);
+    if (ride.id !== rid) {
+      attachRide(rid, dest);
+      // (optional) also upsert the ride row to ensure it exists server-side
+      supabase.from("rides").upsert({ id: rid, destination: dest });
+    }
   }, [params.rideId, params.dest]);
 
-  // Join: request location and add a pickup once
+
+  // 2–4) Join flow: permission → location → insert → local mirror
   useEffect(() => {
     const join = async () => {
       if (!ride.id || joined) return;
+
+      // 2) permission + coords
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Permission needed", "Location permission is required to join this ride.");
+        Alert.alert("Location needed", "Please allow location to join this ride.");
         return;
       }
       const pos = await Location.getCurrentPositionAsync({});
-      const newId = Math.random().toString(36).slice(2);
-      myPickupIdRef.current = newId;
-      addPickup({
-        id: newId,
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+
+      // Make a short pickup id (client-side for MVP)
+      const pickupId = Math.random().toString(36).slice(2);
+      myPickupIdRef.current = pickupId;
+
+      // 3) insert to Supabase
+      const { error } = await supabase.from("pickups").insert({
+        id: pickupId,
+        ride_id: ride.id,
         name: "Guest",
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude,
+        lat,
+        lng,
       });
+      if (error) {
+        console.warn("[join] insert pickup error:", error.message);
+        Alert.alert("Error joining ride", error.message);
+        return;
+      }
+
+      // 4) reflect locally
+      addPickup({ id: pickupId, name: "Guest", lat, lng });
       setJoined(true);
     };
+
     join();
   }, [ride.id, joined]);
+
 
   const inviteFriends = async () => {
     if (!ride.id) return;
